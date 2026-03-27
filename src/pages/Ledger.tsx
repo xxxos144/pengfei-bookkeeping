@@ -22,11 +22,46 @@ const typeLabelsMap: Record<string, string> = {
 
 type Filter = 'all' | 'income' | 'expense';
 
+const ACCOUNT_LABELS: Record<string, string> = {
+  'Assets:Current:Alipay': '支付宝余额',
+  'Assets:Current:Wechat:Wallet': '微信零钱',
+  'Assets:Current:Wechat:MiniFund': '零钱通',
+  'Assets:Current:Bank:CMB': '招商银行',
+  'Assets:Current:Bank:BOC': '中国银行',
+  'Assets:Current:Bank:ICBC': '工商银行',
+  'Assets:Current:Bank:CCB': '建设银行',
+  'Assets:Current:Bank:ABC': '农业银行',
+  'Assets:Current:Bank:BOCM': '交通银行',
+  'Assets:Current:Bank:CIB': '兴业银行',
+  'Assets:Current:Bank:SPDB': '浦发银行',
+  'Assets:Current:Bank:CMBC': '民生银行',
+  'Assets:Current:Bank:HousingFund': '住房公积金',
+  'Assets:Current:Unknown': '未知账户',
+  'Liabilities:CreditCard:CMB': '招行信用卡',
+  'Liabilities:Huabei': '花呗',
+  'Liabilities:JDBaitiao': '京东白条',
+};
+
+function accountLabel(account: string): string {
+  if (ACCOUNT_LABELS[account]) return ACCOUNT_LABELS[account];
+  // Friendly fallback: join last 2 segments
+  const parts = account.split(':');
+  return parts.slice(-2).join(' · ');
+}
+
+function formatTime(time: string | undefined): string {
+  if (!time) return '';
+  // "2026-03-10 14:35:22" → "14:35"
+  const m = time.match(/\d{2}:\d{2}/);
+  return m ? m[0] : '';
+}
+
 export default function Ledger({ transactions, onDelete }: Props) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [filter, setFilter] = useState<Filter>('all');
+  const [expandedId, setExpandedId] = useState<string | null>(null);
 
   const monthTxs = useMemo(
     () => filterByMonth(transactions, year, month),
@@ -125,37 +160,87 @@ export default function Ledger({ transactions, onDelete }: Props) {
           const type = getTransactionType(tx);
           const colorClass = getTransactionColor(type);
           const mainAmount = tx.postings[0]?.amount ?? 0;
+          const isExpanded = expandedId === tx.id;
+          const timeStr = formatTime(tx.time);
 
           return (
             <div key={tx.id} className={`tx-card ${colorClass}`}>
-              <div className="tx-header">
-                <span className="tx-date">{tx.date}</span>
-                <span className="tx-type-badge">{typeLabelsMap[type]}</span>
-              </div>
-              <div className="tx-body">
-                <div className="tx-info">
-                  {tx.payee && <span className="tx-payee">{tx.payee}</span>}
-                  <span className="tx-narration">{tx.narration}</span>
+              {/* Clickable main area */}
+              <div
+                className="tx-clickable-area"
+                onClick={() => setExpandedId(isExpanded ? null : tx.id)}
+              >
+                <div className="tx-header">
+                  <span className="tx-date">
+                    {tx.date}{timeStr ? ` ${timeStr}` : ''}
+                  </span>
+                  <div className="tx-header-right">
+                    <span className="tx-type-badge">{typeLabelsMap[type]}</span>
+                    <span className={`tx-expand-arrow ${isExpanded ? 'open' : ''}`}>›</span>
+                  </div>
                 </div>
-                <span className="tx-amount">
-                  {mainAmount >= 0 ? '+' : ''}{mainAmount.toFixed(2)}
-                </span>
+                <div className="tx-body">
+                  <div className="tx-info">
+                    {tx.payee && <span className="tx-payee">{tx.payee}</span>}
+                    <span className="tx-narration">{tx.narration}</span>
+                  </div>
+                  <span className="tx-amount">
+                    {mainAmount >= 0 ? '+' : ''}{mainAmount.toFixed(2)}
+                  </span>
+                </div>
               </div>
-              <div className="tx-footer">
-                <div className="tx-accounts">
+
+              {/* Expanded detail */}
+              {isExpanded && (
+                <div className="tx-detail">
+                  {tx.time && (
+                    <div className="tx-detail-row">
+                      <span className="tx-detail-label">交易时间</span>
+                      <span className="tx-detail-value">{tx.time.slice(0, 16)}</span>
+                    </div>
+                  )}
                   {tx.postings.map((p, i) => (
-                    <span key={i} className="tx-account">
-                      {p.account.split(':').slice(-1)[0]}
-                    </span>
+                    <div key={i} className="tx-detail-row">
+                      <span className="tx-detail-label">
+                        {i === 0 ? '支出账户' : '对方账户'}
+                      </span>
+                      <span className="tx-detail-value">
+                        {accountLabel(p.account)}
+                        <em className="tx-detail-amount">
+                          {p.amount >= 0 ? '+' : ''}{p.amount.toFixed(2)}
+                        </em>
+                      </span>
+                    </div>
                   ))}
+                  <div className="tx-detail-footer">
+                    <button
+                      className="tx-delete"
+                      onClick={(e) => { e.stopPropagation(); handleDelete(tx); }}
+                    >
+                      删除
+                    </button>
+                  </div>
                 </div>
-                <button
-                  className="tx-delete"
-                  onClick={() => handleDelete(tx)}
-                >
-                  删除
-                </button>
-              </div>
+              )}
+
+              {/* Footer only when collapsed */}
+              {!isExpanded && (
+                <div className="tx-footer">
+                  <div className="tx-accounts">
+                    {tx.postings.map((p, i) => (
+                      <span key={i} className="tx-account">
+                        {p.account.split(':').slice(-1)[0]}
+                      </span>
+                    ))}
+                  </div>
+                  <button
+                    className="tx-delete"
+                    onClick={(e) => { e.stopPropagation(); handleDelete(tx); }}
+                  >
+                    删除
+                  </button>
+                </div>
+              )}
             </div>
           );
         })}

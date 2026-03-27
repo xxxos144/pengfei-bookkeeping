@@ -101,9 +101,15 @@
 .tx-card {
   background: #fff;
   border-radius: 12px;
-  padding: 14px 16px;
   box-shadow: 0 1px 3px rgba(0,0,0,0.04);
   border-left: 4px solid transparent;
+  overflow: hidden;
+}
+
+.tx-clickable-area {
+  padding: 14px 16px 0;
+  cursor: pointer;
+  user-select: none;
 }
 
 .tx-card.tx-expense { border-left-color: #ef4444; }
@@ -116,6 +122,7 @@
   justify-content: space-between;
   align-items: center;
   margin-bottom: 6px;
+  padding-bottom: 0;
 }
 
 .tx-date { font-size: 11px; color: #9ca3af; }
@@ -132,6 +139,7 @@
   display: flex;
   justify-content: space-between;
   align-items: center;
+  padding-bottom: 10px;
 }
 
 .tx-info {
@@ -154,11 +162,76 @@
 .tx-transfer .tx-amount { color: #3b82f6; }
 .tx-repayment .tx-amount { color: #f59e0b; }
 
+.tx-header-right {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tx-expand-arrow {
+  font-size: 18px;
+  color: #d1d5db;
+  line-height: 1;
+  transition: transform 0.2s;
+  display: inline-block;
+}
+
+.tx-expand-arrow.open {
+  transform: rotate(90deg);
+}
+
+.tx-detail {
+  padding: 10px 16px 4px;
+  border-top: 1px solid #f3f4f6;
+  margin-top: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.tx-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.tx-detail-label {
+  color: #9ca3af;
+  flex-shrink: 0;
+  min-width: 56px;
+}
+
+.tx-detail-value {
+  color: #1f2937;
+  text-align: right;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.tx-detail-amount {
+  font-style: normal;
+  font-size: 12px;
+  color: #9ca3af;
+  font-variant-numeric: tabular-nums;
+}
+
+.tx-detail-footer {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
 .tx-footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   margin-top: 8px;
+  padding: 0 16px 14px;
 }
 
 .tx-accounts {
