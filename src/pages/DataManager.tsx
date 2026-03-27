@@ -6,16 +6,14 @@ import { toastConfirm, toast } from '../utils/toast';
 import './DataManager.css';
 
 /**
- * Build a dedup key from a transaction: date + first posting amount + narration/payee.
- * Transactions sharing the same key are considered duplicates.
+ * Build a dedup key from a transaction: date + first posting absolute amount.
+ * Same date + same amount = same real-world payment, even if descriptions differ
+ * (e.g. Alipay CSV shows "支付宝" while bank PDF shows "中国移动").
  */
 function dedupKey(tx: Transaction): string {
   const amount = tx.postings[0]?.amount ?? 0;
-  // Normalize: use absolute amount rounded to 2 decimals
   const amtStr = Math.abs(amount).toFixed(2);
-  // Combine date + amount + payee + narration for matching
-  const desc = `${tx.payee}|${tx.narration}`.toLowerCase().trim();
-  return `${tx.date}|${amtStr}|${desc}`;
+  return `${tx.date}|${amtStr}`;
 }
 
 /** Find duplicate transaction groups. Returns groups of 2+ with same key. */
@@ -63,7 +61,7 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
     }
 
     const confirmed = await toastConfirm(
-      `发现 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额+描述），确定删除重复项？每组只保留一笔。`
+      `发现 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额），确定删除重复项？每组只保留一笔。`
     );
     if (!confirmed) return;
 
@@ -174,7 +172,7 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
         <h3>去除重复交易</h3>
         <p>
           {dupeCount > 0
-            ? `检测到 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额+描述），点击去重每组只保留一笔`
+            ? `检测到 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额），点击去重每组只保留一笔`
             : '当前没有发现重复交易'}
         </p>
         <button

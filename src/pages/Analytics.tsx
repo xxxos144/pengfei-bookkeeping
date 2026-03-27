@@ -12,7 +12,7 @@ import {
 } from 'chart.js';
 import type { Transaction } from '../types';
 import { getTransactionType, filterByMonth } from '../utils/beancount';
-import { getAllTransactions, updateTransaction } from '../utils/db';
+import { getAllTransactions, updateTransaction, deleteTransaction } from '../utils/db';
 import { reclassifyTransaction, reassignCategory, ALL_CATEGORIES } from '../utils/categoryRules';
 import { toast, toastConfirm } from '../utils/toast';
 import './Analytics.css';
@@ -137,6 +137,14 @@ export default function Analytics({ transactions, onRefresh }: Props) {
     await updateTransaction(updated);
     await onRefresh();
     toast('分类已更新', 'success');
+  };
+
+  const handleDeleteDetail = async (tx: Transaction) => {
+    const confirmed = await toastConfirm(`确定删除「${tx.narration}」吗？`);
+    if (!confirmed) return;
+    await deleteTransaction(tx.id);
+    await onRefresh();
+    toast('已删除', 'success');
   };
 
   const monthTxs = useMemo(
@@ -374,18 +382,26 @@ export default function Analytics({ transactions, onRefresh }: Props) {
                           </span>
                           <span className="detail-amount">¥{amount.toFixed(2)}</span>
                         </div>
-                        <select
-                          className="detail-category-select"
-                          value={cat.category}
-                          onChange={(e) => handleReassign(tx, e.target.value)}
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          {ALL_CATEGORIES.map((c) => (
-                            <option key={c.account} value={c.account}>
-                              {c.label}
-                            </option>
-                          ))}
-                        </select>
+                        <div className="detail-actions">
+                          <select
+                            className="detail-category-select"
+                            value={cat.category}
+                            onChange={(e) => handleReassign(tx, e.target.value)}
+                            onClick={(e) => e.stopPropagation()}
+                          >
+                            {ALL_CATEGORIES.map((c) => (
+                              <option key={c.account} value={c.account}>
+                                {c.label}
+                              </option>
+                            ))}
+                          </select>
+                          <button
+                            className="detail-delete-btn"
+                            onClick={(e) => { e.stopPropagation(); handleDeleteDetail(tx); }}
+                          >
+                            删除
+                          </button>
+                        </div>
                       </div>
                     ))}
                   </div>

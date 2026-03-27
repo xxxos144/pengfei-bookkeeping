@@ -173,6 +173,12 @@
   font-variant-numeric: tabular-nums;
 }
 
+.detail-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 .detail-category-select {
   font-size: 11px;
   padding: 3px 6px;
@@ -181,8 +187,24 @@
   background: #f9fafb;
   color: #4b5563;
   cursor: pointer;
-  align-self: flex-start;
   max-width: 120px;
+}
+
+.detail-delete-btn {
+  font-size: 11px;
+  padding: 3px 10px;
+  border: 1px solid #fecaca;
+  border-radius: 4px;
+  background: #fff;
+  color: #ef4444;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all 0.15s;
+}
+
+.detail-delete-btn:active {
+  background: #ef4444;
+  color: #fff;
 }
 
 .cat-left {
