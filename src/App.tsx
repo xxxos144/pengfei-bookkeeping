@@ -4,7 +4,7 @@ import AccountingEquation from './components/AccountingEquation';
 import Ledger from './pages/Ledger';
 import AddTransaction from './pages/AddTransaction';
 import BalanceEditor from './pages/BalanceEditor';
-import Investments from './pages/Investments';
+import Analytics from './pages/Analytics';
 import DataManager from './pages/DataManager';
 import { getAllTransactions, addTransaction, deleteTransaction, importTransactions } from './utils/db';
 import { calculateBalances } from './utils/beancount';
@@ -13,13 +13,13 @@ import { toast } from './utils/toast';
 import type { Transaction, AccountBalances } from './types';
 import './App.css';
 
-type Page = 'ledger' | 'add' | 'balance' | 'investments' | 'data';
+type Page = 'ledger' | 'add' | 'balance' | 'analytics' | 'data';
 
 const pageLabels: Record<Page, string> = {
   ledger: '流水',
   add: '记账',
   balance: '对账',
-  investments: '收益',
+  analytics: '分析',
   data: '数据',
 };
 
@@ -27,7 +27,7 @@ const pageIcons: Record<Page, string> = {
   ledger: '📊',
   add: '✏️',
   balance: '⚖️',
-  investments: '📈',
+  analytics: '📈',
   data: '💾',
 };
 
@@ -111,7 +111,7 @@ export default function App() {
         )}
         {page === 'add' && <AddTransaction onAdd={handleAddTransaction} />}
         {page === 'balance' && <BalanceEditor onRefresh={loadData} />}
-        {page === 'investments' && <Investments onRefresh={loadData} />}
+        {page === 'analytics' && <Analytics transactions={transactions} />}
         {page === 'data' && (
           <DataManager
             transactions={transactions}
