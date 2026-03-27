@@ -4,6 +4,7 @@ import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
 import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import type { Transaction, Posting } from '../types';
+import { matchKeywords } from './categoryRules';
 
 // Set up PDF.js worker
 GlobalWorkerOptions.workerSrc = new URL(
@@ -47,34 +48,6 @@ function normalizeDate(s: string): string {
   }
   return s.trim();
 }
-
-// Keyword-based fallback: match payee/narration text to category
-const KEYWORD_RULES: readonly { pattern: RegExp; account: string }[] = [
-  // 交通
-  { pattern: /高德打车|滴滴|嘀嘀|出租|打车|曹操出行|T3出行|首汽约车|花小猪|快车|顺风车|地铁|公交|单车|骑行|哈啰/, account: 'Expenses:Transport' },
-  // 餐饮
-  { pattern: /味千|拉面|餐饮|餐厅|饭店|美团|饿了么|肯德基|麦当劳|星巴克|瑞幸|喜茶|奈雪|海底捞|外卖|小吃|烧烤|火锅|咖啡|奶茶|食堂|便当|快餐/, account: 'Expenses:Food:Dining' },
-  // 游戏
-  { pattern: /暴雪|网易游戏|腾讯游戏|Steam|steam|游戏充值|米哈游|原神|王者荣耀|和平精英|PlayStation|Xbox|Nintendo|Epic Games/, account: 'Expenses:Entertainment:Games' },
-  // 网购
-  { pattern: /京东|淘宝|天猫|拼多多|网银在线|唯品会|苏宁|当当|亚马逊|闲鱼|1688|得物/, account: 'Expenses:Shopping:Online' },
-  // 生活缴费
-  { pattern: /话费|电费|水费|燃气|物业|宽带|有线/, account: 'Expenses:Bills' },
-  // 转账
-  { pattern: /转账|微信转账/, account: 'Expenses:Transfer' },
-  // 红包
-  { pattern: /红包/, account: 'Expenses:RedPacket' },
-  // 住房
-  { pattern: /房租|租房|自如|蛋壳|贝壳/, account: 'Expenses:Housing:Rent' },
-  // 医疗
-  { pattern: /医院|药房|药店|诊所|体检/, account: 'Expenses:Health:Medical' },
-  // 娱乐
-  { pattern: /电影|影院|KTV|ktv|演出|音乐|视频会员|爱奇艺|优酷|腾讯视频|B站|bilibili|网飞/, account: 'Expenses:Entertainment' },
-  // 旅游
-  { pattern: /机票|酒店|民宿|携程|飞猪|去哪儿|途牛|Airbnb/, account: 'Expenses:Travel' },
-  // 运动
-  { pattern: /健身|游泳|瑜伽|球场/, account: 'Expenses:Sports' },
-];
 
 // Map category text to Beancount account
 function mapExpenseAccount(category: string, desc?: string): string {
@@ -124,11 +97,7 @@ function mapExpenseAccount(category: string, desc?: string): string {
 
   // Fallback: keyword match on category + description
   const text = `${category} ${desc ?? ''}`;
-  for (const rule of KEYWORD_RULES) {
-    if (rule.pattern.test(text)) return rule.account;
-  }
-
-  return 'Expenses:Other';
+  return matchKeywords(text) ?? 'Expenses:Other';
 }
 
 function mapPaymentAccount(method: string): string {
@@ -504,14 +473,11 @@ async function parseBankPDF(file: File): Promise<Transaction[]> {
       .replace(/^支付宝-/, '')
       .replace(/^财付通-/, '');
 
-    // Guess category using keyword rules
+    // Guess category using shared keyword rules
     const text = `${remark} ${counterparty} ${txName}`;
-    let category = 'Expenses:Other';
-    for (const rule of KEYWORD_RULES) {
-      if (rule.pattern.test(text)) { category = rule.account; break; }
-    }
-    if (category === 'Expenses:Other') {
-      if (/退款|退/.test(text)) category = 'Income:Refund';
+    let category = matchKeywords(text) ?? 'Expenses:Other';
+    if (category === 'Expenses:Other' && /退款|退/.test(text)) {
+      category = 'Income:Refund';
     }
 
     let postings: Posting[];

@@ -59,6 +59,11 @@ export async function importTransactions(txs: readonly Transaction[]): Promise<v
   await tx.done;
 }
 
+export async function updateTransaction(tx: Transaction): Promise<void> {
+  const db = await getDB();
+  await db.put(STORES.transactions, tx);
+}
+
 export async function clearAllTransactions(): Promise<void> {
   const db = await getDB();
   await db.clear(STORES.transactions);

@@ -111,7 +111,7 @@ export default function App() {
         )}
         {page === 'add' && <AddTransaction onAdd={handleAddTransaction} />}
         {page === 'balance' && <BalanceEditor onRefresh={loadData} />}
-        {page === 'analytics' && <Analytics transactions={transactions} />}
+        {page === 'analytics' && <Analytics transactions={transactions} onRefresh={loadData} />}
         {page === 'data' && (
           <DataManager
             transactions={transactions}
