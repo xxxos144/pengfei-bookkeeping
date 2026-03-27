@@ -95,6 +95,7 @@ export default function Analytics({ transactions }: Props) {
   const [month, setMonth] = useState(now.getMonth() + 1);
   const [sortField, setSortField] = useState<SortField>('amount');
   const [sortDir, setSortDir] = useState<SortDir>('desc');
+  const [expanded, setExpanded] = useState<string | null>(null);
 
   const monthTxs = useMemo(
     () => filterByMonth(transactions, year, month),
@@ -104,6 +105,7 @@ export default function Analytics({ transactions }: Props) {
   // Category breakdown for expenses
   const categoryStats = useMemo(() => {
     const map = new Map<string, { amount: number; count: number }>();
+    const txMap = new Map<string, { tx: Transaction; amount: number }[]>();
 
     for (const tx of monthTxs) {
       const type = getTransactionType(tx);
@@ -119,6 +121,10 @@ export default function Analytics({ transactions }: Props) {
           amount: existing.amount + p.amount,
           count: existing.count + 1,
         });
+
+        const txList = txMap.get(key) ?? [];
+        txList.push({ tx, amount: p.amount });
+        txMap.set(key, txList);
       }
     }
 
@@ -140,7 +146,7 @@ export default function Analytics({ transactions }: Props) {
       return sortDir === 'desc' ? -cmp : cmp;
     });
 
-    return { stats, totalExpense };
+    return { stats, totalExpense, txMap };
   }, [monthTxs, sortField, sortDir]);
 
   // Daily income/expense line chart data (for the month)
@@ -281,23 +287,44 @@ export default function Analytics({ transactions }: Props) {
           {categoryStats.stats.map((cat) => {
             const label = getCategoryLabel(cat.category);
             const color = getCategoryColor(cat.category);
+            const isExpanded = expanded === cat.category;
+            const details = categoryStats.txMap.get(cat.category) ?? [];
             return (
-              <div key={cat.category} className="category-row">
-                <div className="cat-left">
-                  <span className="cat-dot" style={{ background: color }} />
-                  <span className="cat-name">{label}</span>
-                  <span className="cat-count">{cat.count}笔</span>
+              <div key={cat.category} className="category-group">
+                <div
+                  className={`category-row clickable ${isExpanded ? 'expanded' : ''}`}
+                  onClick={() => setExpanded(isExpanded ? null : cat.category)}
+                >
+                  <div className="cat-left">
+                    <span className={`cat-arrow ${isExpanded ? 'open' : ''}`}>▶</span>
+                    <span className="cat-dot" style={{ background: color }} />
+                    <span className="cat-name">{label}</span>
+                    <span className="cat-count">{cat.count}笔</span>
+                  </div>
+                  <div className="cat-right">
+                    <span className="cat-amount">¥{cat.amount.toFixed(2)}</span>
+                    <span className="cat-percent">{cat.percent.toFixed(1)}%</span>
+                  </div>
+                  <div className="cat-bar-bg">
+                    <div
+                      className="cat-bar-fill"
+                      style={{ width: `${cat.percent}%`, background: color }}
+                    />
+                  </div>
                 </div>
-                <div className="cat-right">
-                  <span className="cat-amount">¥{cat.amount.toFixed(2)}</span>
-                  <span className="cat-percent">{cat.percent.toFixed(1)}%</span>
-                </div>
-                <div className="cat-bar-bg">
-                  <div
-                    className="cat-bar-fill"
-                    style={{ width: `${cat.percent}%`, background: color }}
-                  />
-                </div>
+                {isExpanded && details.length > 0 && (
+                  <div className="cat-details">
+                    {details.map(({ tx, amount }, i) => (
+                      <div key={`${tx.id}-${i}`} className="cat-detail-row">
+                        <span className="detail-date">{tx.date.slice(5)}</span>
+                        <span className="detail-desc">
+                          {tx.payee ? `${tx.payee} - ` : ''}{tx.narration}
+                        </span>
+                        <span className="detail-amount">¥{amount.toFixed(2)}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}
