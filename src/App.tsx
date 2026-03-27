@@ -78,7 +78,7 @@ export default function App() {
       toast('暂无数据可导出', 'info');
       return;
     }
-    exportToBean(transactions, `泠邑记账_${new Date().toISOString().slice(0, 10)}.bean`);
+    exportToBean(transactions, `记账_${new Date().toISOString().slice(0, 10)}.bean`);
     toast('导出成功', 'success');
   };
 
@@ -96,8 +96,8 @@ export default function App() {
       <Toast />
 
       <header className="app-header">
-        <h1 className="app-title">泠邑的记账小工具</h1>
-        <span className="app-subtitle">随时随地，轻松记账</span>
+        <h1 className="app-title">记账小工具</h1>
+        <span className="app-subtitle">by Oscar</span>
       </header>
 
       <AccountingEquation balances={balances} />

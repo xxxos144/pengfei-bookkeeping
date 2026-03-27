@@ -1,6 +1,6 @@
 {
-  "name": "泠邑的记账小工具",
-  "short_name": "泠邑记账",
+  "name": "记账小工具",
+  "short_name": "记账小工具",
   "description": "随时随地轻松记账",
   "start_url": "/",
   "display": "standalone",
