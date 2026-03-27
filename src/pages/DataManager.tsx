@@ -269,12 +269,17 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
       </div>
 
       <div className="data-section data-info">
+        <h3>导入顺序（推荐）</h3>
+        <ul>
+          <li><strong>1. 先导银行卡账单</strong>（PDF）— 作为基础，包含所有银行卡消费</li>
+          <li><strong>2. 再导支付宝账单</strong>（CSV）— 自动跳过银行卡支付的记录，只补充余额/花呗支付</li>
+          <li><strong>3. 最后导微信账单</strong>（CSV）— 自动跳过银行卡支付的记录，只补充零钱支付</li>
+        </ul>
         <h3>账单获取方式</h3>
         <ul>
+          <li><strong>银行卡</strong>：手机银行 App 导出交易流水 PDF</li>
           <li><strong>支付宝</strong>：我的 → 账单 → 右上角 ... → 账单下载 → 邮箱收取</li>
           <li><strong>微信</strong>：我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单</li>
-          <li><strong>银行卡</strong>：手机银行 App 导出交易流水 PDF</li>
-          <li>支持 CSV、XLSX、PDF 格式，直接导入</li>
         </ul>
       </div>
     </div>

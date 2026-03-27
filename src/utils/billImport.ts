@@ -60,6 +60,17 @@ function extractTime(s: string): string {
   return '';
 }
 
+/**
+ * Check if a payment method string indicates a bank card payment.
+ * Bank card payments from Alipay/WeChat should be skipped when
+ * using bank statement as the base — those are already in bank records.
+ * Examples: "招商银行储蓄卡(3737)", "工商银行信用卡(1234)", "中国银行(6789)"
+ */
+function isBankCardPayment(method: string): boolean {
+  if (!method) return false;
+  return /银行|储蓄卡|信用卡|借记卡|银联/.test(method);
+}
+
 // Map category text to Beancount account
 function mapExpenseAccount(category: string, desc?: string): string {
   const map: Record<string, string> = {
@@ -173,8 +184,11 @@ function parseAlipayRows(headers: readonly string[], rows: readonly string[][]):
     const category = categoryCol >= 0 ? row[categoryCol]?.trim() ?? '' : '';
 
     if (amount <= 0) continue;
-    // Skip "不计收支" entries (transfers, refunds, etc.)
     if (typeStr.includes('不计收支')) continue;
+
+    // Skip bank card payments — these are already in bank statement.
+    // Only keep Alipay balance/花呗/余额宝 payments.
+    if (isBankCardPayment(method)) continue;
 
     const isIncome = typeStr.includes('收入') || typeStr.includes('入');
     const paymentAccount = mapPaymentAccount(method || '支付宝');
@@ -240,6 +254,10 @@ function parseWechatRows(headers: readonly string[], rows: readonly string[][]):
     const category = categoryCol >= 0 ? row[categoryCol]?.trim() ?? '' : '';
 
     if (amount <= 0) continue;
+
+    // Skip bank card payments — these are already in bank statement.
+    // Only keep WeChat 零钱/零钱通 payments.
+    if (isBankCardPayment(method)) continue;
 
     const isIncome = typeStr.includes('收入') || typeStr.includes('入');
     const paymentAccount = mapPaymentAccount(method || '微信');
@@ -484,14 +502,6 @@ async function parseBankPDF(file: File): Promise<Transaction[]> {
     if (absAmount === 0) continue;
 
     const isIncome = amount > 0;
-
-    // Skip pass-through records from payment tools — these transactions
-    // are already captured with more detail on the Alipay/WeChat side.
-    // Bank only shows "支付宝" or "财付通" with no merchant info.
-    const passThrough = /支付宝|财付通|微信支付|ALIPAY|TENPAY|CFT/i;
-    if (passThrough.test(counterparty) || passThrough.test(remark) || passThrough.test(txName)) {
-      continue;
-    }
 
     // Clean counterparty name
     const cleanCounterparty = counterparty
