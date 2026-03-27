@@ -503,13 +503,16 @@ async function parseBankPDF(file: File): Promise<Transaction[]> {
 
     const isIncome = amount > 0;
 
-    // Clean counterparty name
-    const cleanCounterparty = counterparty
-      .replace(/^支付宝-/, '')
-      .replace(/^财付通-/, '');
+    // Clean counterparty: strip payment channel prefixes, remove pure-numeric strings
+    // If it's ≤2 chars it's likely a PDF extraction artifact — use txName instead
+    const rawCounterparty = counterparty.replace(/^支付宝-|^财付通-|^微信-/g, '').trim();
+    const cleanCounterparty = rawCounterparty.length > 2 ? rawCounterparty : txName.trim();
 
-    // Guess category using shared keyword rules
-    const text = `${remark} ${counterparty} ${txName}`;
+    // Best description: prefer remark if meaningful, else txName
+    const bestNarration = remark.trim() || txName.trim() || '银行交易';
+
+    // Category keywords search across all text fields
+    const text = `${counterparty} ${txName} ${remark}`;
     let category = matchKeywords(text) ?? 'Expenses:Other';
     if (category === 'Expenses:Other' && /退款|退/.test(text)) {
       category = 'Income:Refund';
@@ -531,10 +534,10 @@ async function parseBankPDF(file: File): Promise<Transaction[]> {
     transactions.push({
       id: generateId(),
       date,
-      time: '', // bank PDFs typically don't include precise time
+      time: '',
       flag: '*',
       payee: cleanCounterparty,
-      narration: remark || txName || '银行交易',
+      narration: bestNarration,
       postings,
       raw: '',
     });

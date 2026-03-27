@@ -199,19 +199,40 @@ export default function Ledger({ transactions, onDelete }: Props) {
                       <span className="tx-detail-value">{tx.time.slice(0, 16)}</span>
                     </div>
                   )}
-                  {tx.postings.map((p, i) => (
-                    <div key={i} className="tx-detail-row">
-                      <span className="tx-detail-label">
-                        {i === 0 ? '支出账户' : '对方账户'}
-                      </span>
-                      <span className="tx-detail-value">
-                        {accountLabel(p.account)}
-                        <em className="tx-detail-amount">
-                          {p.amount >= 0 ? '+' : ''}{p.amount.toFixed(2)}
-                        </em>
-                      </span>
+                  {tx.payee && (
+                    <div className="tx-detail-row">
+                      <span className="tx-detail-label">交易对方</span>
+                      <span className="tx-detail-value">{tx.payee}</span>
                     </div>
-                  ))}
+                  )}
+                  {tx.narration && tx.narration !== tx.payee && (
+                    <div className="tx-detail-row">
+                      <span className="tx-detail-label">备注</span>
+                      <span className="tx-detail-value tx-detail-remark">{tx.narration}</span>
+                    </div>
+                  )}
+                  {tx.postings.map((p, i) => {
+                    const isExpense = p.account.startsWith('Expenses:');
+                    const isAsset = p.account.startsWith('Assets:');
+                    const isIncomeSide = p.account.startsWith('Income:');
+                    let rowLabel = '账户';
+                    if (isExpense) rowLabel = '支出分类';
+                    else if (isAsset && p.amount < 0) rowLabel = '付款账户';
+                    else if (isAsset && p.amount > 0) rowLabel = '收款账户';
+                    else if (isIncomeSide) rowLabel = '收入来源';
+                    else if (i === tx.postings.length - 1) rowLabel = '对方账户';
+                    return (
+                      <div key={i} className="tx-detail-row">
+                        <span className="tx-detail-label">{rowLabel}</span>
+                        <span className="tx-detail-value">
+                          {accountLabel(p.account)}
+                          <em className="tx-detail-amount">
+                            {p.amount >= 0 ? '+' : ''}{p.amount.toFixed(2)}
+                          </em>
+                        </span>
+                      </div>
+                    );
+                  })}
                   <div className="tx-detail-footer">
                     <button
                       className="tx-delete"
