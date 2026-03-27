@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import type { Transaction } from '../types';
+import type { Transaction, TransactionType } from '../types';
 import {
   getTransactionType,
   getTransactionColor,
@@ -20,12 +20,15 @@ const typeLabelsMap: Record<string, string> = {
   repayment: '还款',
 };
 
+type Filter = 'all' | 'income' | 'expense';
+
 export default function Ledger({ transactions, onDelete }: Props) {
   const now = new Date();
   const [year, setYear] = useState(now.getFullYear());
   const [month, setMonth] = useState(now.getMonth() + 1);
+  const [filter, setFilter] = useState<Filter>('all');
 
-  const filtered = useMemo(
+  const monthTxs = useMemo(
     () => filterByMonth(transactions, year, month),
     [transactions, year, month]
   );
@@ -33,7 +36,7 @@ export default function Ledger({ transactions, onDelete }: Props) {
   const monthTotal = useMemo(() => {
     let income = 0;
     let expense = 0;
-    for (const tx of filtered) {
+    for (const tx of monthTxs) {
       const type = getTransactionType(tx);
       if (type === 'expense') {
         for (const p of tx.postings) {
@@ -46,7 +49,18 @@ export default function Ledger({ transactions, onDelete }: Props) {
       }
     }
     return { income, expense };
-  }, [filtered]);
+  }, [monthTxs]);
+
+  // Apply type filter
+  const filtered = useMemo(() => {
+    if (filter === 'all') return monthTxs;
+    return monthTxs.filter((tx) => {
+      const type: TransactionType = getTransactionType(tx);
+      if (filter === 'income') return type === 'income';
+      if (filter === 'expense') return type === 'expense' || type === 'repayment';
+      return true;
+    });
+  }, [monthTxs, filter]);
 
   const prevMonth = () => {
     if (month === 1) { setYear(year - 1); setMonth(12); }
@@ -56,6 +70,10 @@ export default function Ledger({ transactions, onDelete }: Props) {
   const nextMonth = () => {
     if (month === 12) { setYear(year + 1); setMonth(1); }
     else setMonth(month + 1);
+  };
+
+  const toggleFilter = (f: Filter) => {
+    setFilter(filter === f ? 'all' : f);
   };
 
   const handleDelete = async (tx: Transaction) => {
@@ -73,10 +91,16 @@ export default function Ledger({ transactions, onDelete }: Props) {
       </div>
 
       <div className="month-summary">
-        <div className="summary-item summary-income">
+        <div
+          className={`summary-item summary-income clickable ${filter === 'income' ? 'active' : ''}`}
+          onClick={() => toggleFilter('income')}
+        >
           收入<strong>¥{monthTotal.income.toFixed(2)}</strong>
         </div>
-        <div className="summary-item summary-expense">
+        <div
+          className={`summary-item summary-expense clickable ${filter === 'expense' ? 'active' : ''}`}
+          onClick={() => toggleFilter('expense')}
+        >
           支出<strong>¥{monthTotal.expense.toFixed(2)}</strong>
         </div>
         <div className="summary-item summary-balance">
@@ -84,9 +108,18 @@ export default function Ledger({ transactions, onDelete }: Props) {
         </div>
       </div>
 
+      {filter !== 'all' && (
+        <div className="filter-hint">
+          当前筛选：{filter === 'income' ? '仅收入' : '仅支出'}
+          <button className="filter-clear" onClick={() => setFilter('all')}>显示全部</button>
+        </div>
+      )}
+
       <div className="tx-list">
         {filtered.length === 0 && (
-          <div className="tx-empty">本月暂无交易记录</div>
+          <div className="tx-empty">
+            {filter !== 'all' ? '没有符合筛选条件的记录' : '本月暂无交易记录'}
+          </div>
         )}
         {[...filtered].reverse().map((tx) => {
           const type = getTransactionType(tx);

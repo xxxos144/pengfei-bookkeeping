@@ -69,14 +69,14 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
       </div>
 
       <div className="data-section data-highlight">
-        <h3>导入支付宝 / 微信账单</h3>
-        <p>支持 CSV 和 XLSX 格式，自动识别支付宝、微信账单</p>
+        <h3>导入账单</h3>
+        <p>支持支付宝/微信 CSV、银行 PDF、XLSX 格式，自动识别</p>
         <button
           className="data-btn btn-bill"
           onClick={handleBillImport}
           disabled={importing}
         >
-          {importing ? '导入中...' : '选择账单文件 (CSV/XLSX)'}
+          {importing ? '导入中...' : '选择账单文件 (CSV/XLSX/PDF)'}
         </button>
       </div>
 
@@ -113,8 +113,8 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
         <ul>
           <li><strong>支付宝</strong>：我的 → 账单 → 右上角 ... → 账单下载 → 邮箱收取</li>
           <li><strong>微信</strong>：我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单</li>
-          <li>下载的 ZIP 解压后得到 CSV 文件，直接导入即可</li>
-          <li>也支持 XLSX 格式的账单文件</li>
+          <li><strong>银行卡</strong>：手机银行 App 导出交易流水 PDF</li>
+          <li>支持 CSV、XLSX、PDF 格式，直接导入</li>
         </ul>
       </div>
     </div>

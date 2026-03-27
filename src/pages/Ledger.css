@@ -51,6 +51,40 @@
 .summary-expense { background: #fee2e2; color: #dc2626; }
 .summary-balance { background: #dbeafe; color: #1d4ed8; }
 
+.clickable {
+  cursor: pointer;
+  transition: transform 0.15s, box-shadow 0.15s;
+  user-select: none;
+}
+
+.clickable:active {
+  transform: scale(0.96);
+}
+
+.clickable.active {
+  box-shadow: 0 0 0 2px currentColor;
+  font-weight: 700;
+}
+
+.filter-hint {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 13px;
+  color: #6b7280;
+  padding: 6px 0;
+}
+
+.filter-clear {
+  background: none;
+  border: none;
+  color: #3b82f6;
+  cursor: pointer;
+  font-size: 13px;
+  text-decoration: underline;
+}
+
 .tx-list {
   display: flex;
   flex-direction: column;

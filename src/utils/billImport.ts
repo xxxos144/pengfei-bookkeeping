@@ -2,7 +2,14 @@
 
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import { getDocument, GlobalWorkerOptions } from 'pdfjs-dist';
 import type { Transaction, Posting } from '../types';
+
+// Set up PDF.js worker
+GlobalWorkerOptions.workerSrc = new URL(
+  'pdfjs-dist/build/pdf.worker.min.mjs',
+  import.meta.url
+).toString();
 
 function generateId(): string {
   return 'imp_' + Math.random().toString(36).substring(2, 11);
@@ -367,12 +374,146 @@ function parseCSVContent(text: string): { headers: string[]; rows: string[][] } 
   return { headers, rows };
 }
 
-// Main entry: import a bill file (CSV or XLSX)
+// Parse bank PDF (e.g., Bank of China transaction statement)
+async function parseBankPDF(file: File): Promise<Transaction[]> {
+  const buffer = await file.arrayBuffer();
+  const pdf = await getDocument({ data: buffer }).promise;
+
+  const allRows: string[][] = [];
+
+  for (let i = 1; i <= pdf.numPages; i++) {
+    const page = await pdf.getPage(i);
+    const textContent = await page.getTextContent();
+
+    // Group text items by Y position (same row)
+    const itemsByY = new Map<number, { x: number; str: string }[]>();
+    for (const item of textContent.items) {
+      if (!('str' in item)) continue;
+      const str = item.str.trim();
+      if (!str) continue;
+      // Round Y to group items on the same line
+      const y = Math.round(item.transform[5]);
+      if (!itemsByY.has(y)) itemsByY.set(y, []);
+      itemsByY.get(y)!.push({ x: item.transform[4], str });
+    }
+
+    // Sort rows by Y (descending = top to bottom in PDF)
+    const sortedRows = [...itemsByY.entries()]
+      .sort((a, b) => b[0] - a[0])
+      .map(([, items]) =>
+        items.sort((a, b) => a.x - b.x).map((it) => it.str)
+      );
+
+    allRows.push(...sortedRows);
+  }
+
+  // Find header row and parse data
+  const BANK_HEADERS = ['记账日期', '金额', '余额', '交易名称', '附言', '对方账户名'];
+  let headerIdx = -1;
+  let headerCols: string[] = [];
+
+  for (let i = 0; i < allRows.length; i++) {
+    const row = allRows[i] ?? [];
+    const joined = row.join(' ');
+    const matchCount = BANK_HEADERS.filter((h) => joined.includes(h)).length;
+    if (matchCount >= 3) {
+      headerIdx = i;
+      headerCols = row;
+      break;
+    }
+  }
+
+  if (headerIdx < 0) return [];
+
+  const findBankCol = (names: string[]) => {
+    for (const name of names) {
+      const idx = headerCols.findIndex((h) => h.includes(name));
+      if (idx >= 0) return idx;
+    }
+    return -1;
+  };
+
+  const dateCol = findBankCol(['记账日期']);
+  const amountCol = findBankCol(['金额']);
+  const remarkCol = findBankCol(['附言']);
+  const counterpartyCol = findBankCol(['对方账户名']);
+  const txNameCol = findBankCol(['交易名称']);
+
+  const transactions: Transaction[] = [];
+
+  for (let i = headerIdx + 1; i < allRows.length; i++) {
+    const row = allRows[i] ?? [];
+    if (row.length < 3) continue;
+
+    // Check if first cell looks like a date
+    const dateStr = row[dateCol] ?? '';
+    if (!dateStr.match(/^\d{4}-\d{2}-\d{2}$/)) continue;
+
+    const date = dateStr;
+    const amountStr = (row[amountCol] ?? '').replace(/,/g, '');
+    const amount = parseFloat(amountStr);
+    if (isNaN(amount)) continue;
+
+    const remark = (row[remarkCol] ?? '').replace(/\n/g, '');
+    const counterparty = (row[counterpartyCol] ?? '').replace(/\n/g, '');
+    const txName = txNameCol >= 0 ? (row[txNameCol] ?? '') : '';
+
+    const absAmount = Math.abs(amount);
+    if (absAmount === 0) continue;
+
+    const isIncome = amount > 0;
+
+    // Clean counterparty name
+    const cleanCounterparty = counterparty
+      .replace(/^支付宝-/, '')
+      .replace(/^财付通-/, '');
+
+    // Guess category
+    const text = `${remark}${counterparty}${txName}`.toLowerCase();
+    let category = 'Expenses:Other';
+    if (/地铁|公交|滴滴|出行/.test(text)) category = 'Expenses:Transport';
+    else if (/餐|美团|饿了么|食/.test(text)) category = 'Expenses:Food:Dining';
+    else if (/转账|微信转账/.test(text)) category = 'Expenses:Transfer';
+    else if (/退款|退/.test(text)) category = 'Income:Refund';
+    else if (/话费|电费|水费|燃气/.test(text)) category = 'Expenses:Bills';
+
+    let postings: Posting[];
+    if (isIncome) {
+      postings = [
+        { account: 'Assets:Current:Bank:BOC', amount: absAmount, currency: 'CNY' },
+        { account: category.startsWith('Income') ? category : 'Income:Other', amount: -absAmount, currency: 'CNY' },
+      ];
+    } else {
+      postings = [
+        { account: category, amount: absAmount, currency: 'CNY' },
+        { account: 'Assets:Current:Bank:BOC', amount: -absAmount, currency: 'CNY' },
+      ];
+    }
+
+    transactions.push({
+      id: generateId(),
+      date,
+      flag: '*',
+      payee: cleanCounterparty,
+      narration: remark || txName || '银行交易',
+      postings,
+      raw: '',
+    });
+  }
+
+  return transactions;
+}
+
+// Main entry: import a bill file (CSV, XLSX, or PDF)
 export async function importBillFile(file: File): Promise<Transaction[]> {
   const ext = file.name.toLowerCase().split('.').pop();
 
   let headers: string[];
   let rows: string[][];
+
+  if (ext === 'pdf') {
+    return parseBankPDF(file);
+  }
 
   if (ext === 'xlsx' || ext === 'xls') {
     // Read XLSX
@@ -441,7 +582,7 @@ export function pickBillFiles(): Promise<File[]> {
   return new Promise((resolve) => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.csv,.xlsx,.xls';
+    input.accept = '.csv,.xlsx,.xls,.pdf';
     input.multiple = true;
     input.onchange = () => {
       const files = input.files;
