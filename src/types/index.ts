@@ -9,6 +9,8 @@ export interface Posting {
 export interface Transaction {
   readonly id: string;
   readonly date: string;
+  /** Full datetime string for dedup, e.g. "2026-03-10 12:30:45". Empty if unknown. */
+  readonly time?: string;
   readonly flag: string;
   readonly payee: string;
   readonly narration: string;

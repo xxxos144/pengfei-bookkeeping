@@ -5,32 +5,92 @@ import { pickBillFiles, importBillFile } from '../utils/billImport';
 import { toastConfirm, toast } from '../utils/toast';
 import './DataManager.css';
 
-/**
- * Build a dedup key from a transaction: date + first posting absolute amount.
- * Same date + same amount = same real-world payment, even if descriptions differ
- * (e.g. Alipay CSV shows "支付宝" while bank PDF shows "中国移动").
- */
-function dedupKey(tx: Transaction): string {
-  const amount = tx.postings[0]?.amount ?? 0;
-  const amtStr = Math.abs(amount).toFixed(2);
-  return `${tx.date}|${amtStr}`;
+/** Parse "YYYY-MM-DD HH:MM:SS" to epoch seconds */
+function toSeconds(time: string | undefined): number | null {
+  if (!time) return null;
+  const m = time.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2}):?(\d{2})?/);
+  if (!m) return null;
+  const d = new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5], +(m[6] ?? 0));
+  return Math.floor(d.getTime() / 1000);
 }
 
-/** Find duplicate transaction groups. Returns groups of 2+ with same key. */
+/** Check if two transactions could be the same real-world payment */
+function counterpartyCompatible(a: Transaction, b: Transaction): boolean {
+  const textA = `${a.payee} ${a.narration}`.toLowerCase();
+  const textB = `${b.payee} ${b.narration}`.toLowerCase();
+  if (!a.payee && !a.narration) return true;
+  if (!b.payee && !b.narration) return true;
+  const split = (s: string) => s.replace(/[-_|/，,。.]/g, ' ').split(/\s+/).filter(w => w.length >= 2);
+  const wordsA = split(textA);
+  const wordsB = split(textB);
+  for (const wa of wordsA) {
+    for (const wb of wordsB) {
+      if (wa.includes(wb) || wb.includes(wa)) return true;
+    }
+  }
+  const generic = /支付宝|微信|财付通|网银在线|银联|云闪付/;
+  if (generic.test(textA) || generic.test(textB)) return true;
+  return false;
+}
+
+/**
+ * Find duplicate groups using 3-layer logic:
+ * - Layer 2: exact same time (to second) + same amount → definite duplicate
+ * - Layer 3: time within ±5 min + same amount + compatible counterparty → likely duplicate
+ * - Fallback: no time info → same date + same amount + compatible counterparty
+ */
 function findDuplicates(txs: readonly Transaction[]): Map<string, Transaction[]> {
   const groups = new Map<string, Transaction[]>();
-  for (const tx of txs) {
-    const key = dedupKey(tx);
-    const list = groups.get(key) ?? [];
-    list.push(tx);
-    groups.set(key, list);
+  const used = new Set<string>();
+
+  for (let i = 0; i < txs.length; i++) {
+    if (used.has(txs[i].id)) continue;
+
+    const a = txs[i];
+    const aAmt = Math.abs(a.postings[0]?.amount ?? 0).toFixed(2);
+    const aSec = toSeconds(a.time);
+    const group = [a];
+
+    for (let j = i + 1; j < txs.length; j++) {
+      if (used.has(txs[j].id)) continue;
+      const b = txs[j];
+      const bAmt = Math.abs(b.postings[0]?.amount ?? 0).toFixed(2);
+      if (aAmt !== bAmt) continue;
+
+      const bSec = toSeconds(b.time);
+
+      // Both have time
+      if (aSec !== null && bSec !== null) {
+        // Exact same second = definite duplicate (same-source overlap)
+        if (aSec === bSec) {
+          group.push(b);
+          used.add(b.id);
+          continue;
+        }
+        // Within ±5 minutes + counterparty compatible = cross-source duplicate
+        const diffMin = Math.abs(aSec - bSec) / 60;
+        if (diffMin <= 5 && counterpartyCompatible(a, b)) {
+          group.push(b);
+          used.add(b.id);
+          continue;
+        }
+      } else {
+        // At least one lacks time: same date + counterparty compatible
+        if (a.date === b.date && counterpartyCompatible(a, b)) {
+          group.push(b);
+          used.add(b.id);
+          continue;
+        }
+      }
+    }
+
+    if (group.length > 1) {
+      used.add(a.id);
+      groups.set(`${a.id}-group`, group);
+    }
   }
-  // Only keep groups with duplicates
-  const dupes = new Map<string, Transaction[]>();
-  for (const [key, list] of groups) {
-    if (list.length > 1) dupes.set(key, list);
-  }
-  return dupes;
+
+  return groups;
 }
 
 interface Props {
@@ -61,7 +121,7 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
     }
 
     const confirmed = await toastConfirm(
-      `发现 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额），确定删除重复项？每组只保留一笔。`
+      `发现 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同金额+时间±5分钟内+交易方一致），确定删除重复项？每组保留信息最详细的一笔。`
     );
     if (!confirmed) return;
 
@@ -69,9 +129,15 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
     try {
       let removed = 0;
       for (const list of dupeGroups.values()) {
-        // Keep the first one, delete the rest
-        for (let i = 1; i < list.length; i++) {
-          await deleteTransaction(list[i].id);
+        // Keep the one with the most detail (longest payee+narration = most info)
+        const sorted = [...list].sort((a, b) => {
+          const infoA = `${a.payee}${a.narration}${a.time ?? ''}`.length;
+          const infoB = `${b.payee}${b.narration}${b.time ?? ''}`.length;
+          return infoB - infoA; // descending: most info first
+        });
+        // Delete all except the most detailed one
+        for (let i = 1; i < sorted.length; i++) {
+          await deleteTransaction(sorted[i].id);
           removed++;
         }
       }
@@ -178,7 +244,7 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
         <h3>去除重复交易</h3>
         <p>
           {dupeCount > 0
-            ? `检测到 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额），点击去重每组只保留一笔`
+            ? `检测到 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同金额+时间±5分钟+交易方一致），点击去重`
             : '当前没有发现重复交易'}
         </p>
         <button

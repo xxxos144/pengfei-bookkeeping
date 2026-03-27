@@ -41,12 +41,23 @@ function parseAmount(s: string): number {
 // Normalize date string
 function normalizeDate(s: string): string {
   if (!s) return '';
-  // Handle "2026-03-10 12:30:45" or "2026/03/10 12:30:45"
   const match = s.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})/);
   if (match) {
     return `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
   }
   return s.trim();
+}
+
+/** Extract full datetime string "YYYY-MM-DD HH:MM:SS" from raw date field */
+function extractTime(s: string): string {
+  if (!s) return '';
+  const match = s.match(/(\d{4})[/-](\d{1,2})[/-](\d{1,2})\s+(\d{1,2}):(\d{2})(?::(\d{2}))?/);
+  if (match) {
+    const date = `${match[1]}-${match[2].padStart(2, '0')}-${match[3].padStart(2, '0')}`;
+    const time = `${match[4].padStart(2, '0')}:${match[5]}:${(match[6] ?? '00').padStart(2, '0')}`;
+    return `${date} ${time}`;
+  }
+  return '';
 }
 
 // Map category text to Beancount account
@@ -149,8 +160,10 @@ function parseAlipayRows(headers: readonly string[], rows: readonly string[][]):
     // Skip closed/refunded transactions
     if (status.includes('关闭') || status.includes('退款')) continue;
 
-    const date = normalizeDate(row[dateCol] ?? '');
+    const rawDate = (row[dateCol] ?? '').trim();
+    const date = normalizeDate(rawDate);
     if (!date) continue;
+    const time = extractTime(rawDate);
 
     const typeStr = typeCol >= 0 ? row[typeCol]?.trim() ?? '' : '';
     const counterparty = (row[counterpartyCol] ?? '').trim();
@@ -183,6 +196,7 @@ function parseAlipayRows(headers: readonly string[], rows: readonly string[][]):
     transactions.push({
       id: generateId(),
       date,
+      time,
       flag: '*',
       payee: counterparty,
       narration: desc || category || '支付宝交易',
@@ -213,8 +227,10 @@ function parseWechatRows(headers: readonly string[], rows: readonly string[][]):
     const status = statusCol >= 0 ? row[statusCol]?.trim() ?? '' : '';
     if (status.includes('已退款') || status.includes('已关闭') || status.includes('对方已退还')) continue;
 
-    const date = normalizeDate(row[dateCol] ?? '');
+    const rawDate = (row[dateCol] ?? '').trim();
+    const date = normalizeDate(rawDate);
     if (!date) continue;
+    const time = extractTime(rawDate);
 
     const typeStr = typeCol >= 0 ? row[typeCol]?.trim() ?? '' : '';
     const counterparty = (row[counterpartyCol] ?? '').trim();
@@ -245,6 +261,7 @@ function parseWechatRows(headers: readonly string[], rows: readonly string[][]):
     transactions.push({
       id: generateId(),
       date,
+      time,
       flag: '*',
       payee: counterparty,
       narration: desc || category || '微信支付',
@@ -468,6 +485,14 @@ async function parseBankPDF(file: File): Promise<Transaction[]> {
 
     const isIncome = amount > 0;
 
+    // Skip pass-through records from payment tools — these transactions
+    // are already captured with more detail on the Alipay/WeChat side.
+    // Bank only shows "支付宝" or "财付通" with no merchant info.
+    const passThrough = /支付宝|财付通|微信支付|ALIPAY|TENPAY|CFT/i;
+    if (passThrough.test(counterparty) || passThrough.test(remark) || passThrough.test(txName)) {
+      continue;
+    }
+
     // Clean counterparty name
     const cleanCounterparty = counterparty
       .replace(/^支付宝-/, '')
@@ -496,6 +521,7 @@ async function parseBankPDF(file: File): Promise<Transaction[]> {
     transactions.push({
       id: generateId(),
       date,
+      time: '', // bank PDFs typically don't include precise time
       flag: '*',
       payee: cleanCounterparty,
       narration: remark || txName || '银行交易',
