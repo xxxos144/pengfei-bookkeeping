@@ -101,6 +101,25 @@
   background: #eff6ff;
 }
 
+.data-warn {
+  border: 2px solid #f59e0b;
+  background: #fffbeb;
+}
+
+.stat-warn .stat-number {
+  color: #f59e0b;
+}
+
+.btn-dedup {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+  color: #fff;
+}
+
+.btn-dedup:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .data-danger {
   border: 1px solid #fecaca;
 }

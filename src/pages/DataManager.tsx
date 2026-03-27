@@ -1,9 +1,39 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import type { Transaction } from '../types';
-import { clearAllTransactions, importTransactions } from '../utils/db';
+import { clearAllTransactions, importTransactions, deleteTransaction } from '../utils/db';
 import { pickBillFiles, importBillFile } from '../utils/billImport';
 import { toastConfirm, toast } from '../utils/toast';
 import './DataManager.css';
+
+/**
+ * Build a dedup key from a transaction: date + first posting amount + narration/payee.
+ * Transactions sharing the same key are considered duplicates.
+ */
+function dedupKey(tx: Transaction): string {
+  const amount = tx.postings[0]?.amount ?? 0;
+  // Normalize: use absolute amount rounded to 2 decimals
+  const amtStr = Math.abs(amount).toFixed(2);
+  // Combine date + amount + payee + narration for matching
+  const desc = `${tx.payee}|${tx.narration}`.toLowerCase().trim();
+  return `${tx.date}|${amtStr}|${desc}`;
+}
+
+/** Find duplicate transaction groups. Returns groups of 2+ with same key. */
+function findDuplicates(txs: readonly Transaction[]): Map<string, Transaction[]> {
+  const groups = new Map<string, Transaction[]>();
+  for (const tx of txs) {
+    const key = dedupKey(tx);
+    const list = groups.get(key) ?? [];
+    list.push(tx);
+    groups.set(key, list);
+  }
+  // Only keep groups with duplicates
+  const dupes = new Map<string, Transaction[]>();
+  for (const [key, list] of groups) {
+    if (list.length > 1) dupes.set(key, list);
+  }
+  return dupes;
+}
 
 interface Props {
   readonly transactions: readonly Transaction[];
@@ -15,6 +45,46 @@ interface Props {
 export default function DataManager({ transactions, onImport, onExport, onRefresh }: Props) {
   const [clearing, setClearing] = useState(false);
   const [importing, setImporting] = useState(false);
+  const [deduping, setDeduping] = useState(false);
+
+  const dupeGroups = useMemo(() => findDuplicates(transactions), [transactions]);
+  const dupeCount = useMemo(() => {
+    let total = 0;
+    for (const list of dupeGroups.values()) {
+      total += list.length - 1; // keep 1, count the rest
+    }
+    return total;
+  }, [dupeGroups]);
+
+  const handleDedup = async () => {
+    if (dupeCount === 0) {
+      toast('没有发现重复交易', 'info');
+      return;
+    }
+
+    const confirmed = await toastConfirm(
+      `发现 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额+描述），确定删除重复项？每组只保留一笔。`
+    );
+    if (!confirmed) return;
+
+    setDeduping(true);
+    try {
+      let removed = 0;
+      for (const list of dupeGroups.values()) {
+        // Keep the first one, delete the rest
+        for (let i = 1; i < list.length; i++) {
+          await deleteTransaction(list[i].id);
+          removed++;
+        }
+      }
+      await onRefresh();
+      toast(`已删除 ${removed} 笔重复交易`, 'success');
+    } catch {
+      toast('去重失败', 'error');
+    } finally {
+      setDeduping(false);
+    }
+  };
 
   const handleClear = async () => {
     const confirmed = await toastConfirm('确定清空所有交易数据吗？此操作不可撤销！');
@@ -66,6 +136,10 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
           <span className="stat-number">{transactions.length}</span>
           <span className="stat-label">笔交易</span>
         </div>
+        <div className={`stat-card ${dupeCount > 0 ? 'stat-warn' : ''}`}>
+          <span className="stat-number">{dupeCount}</span>
+          <span className="stat-label">笔重复</span>
+        </div>
       </div>
 
       <div className="data-section data-highlight">
@@ -93,6 +167,22 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
         <p>将所有交易导出为 .bean 格式</p>
         <button className="data-btn btn-export" onClick={onExport}>
           导出 .bean 文件
+        </button>
+      </div>
+
+      <div className={`data-section ${dupeCount > 0 ? 'data-warn' : ''}`}>
+        <h3>去除重复交易</h3>
+        <p>
+          {dupeCount > 0
+            ? `检测到 ${dupeGroups.size} 组共 ${dupeCount} 笔重复交易（相同日期+金额+描述），点击去重每组只保留一笔`
+            : '当前没有发现重复交易'}
+        </p>
+        <button
+          className={`data-btn ${dupeCount > 0 ? 'btn-dedup' : 'btn-import'}`}
+          onClick={handleDedup}
+          disabled={deduping || dupeCount === 0}
+        >
+          {deduping ? '去重中...' : dupeCount > 0 ? `一键去重（删除 ${dupeCount} 笔）` : '无重复交易'}
         </button>
       </div>
 
