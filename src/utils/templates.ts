@@ -60,6 +60,22 @@ export const expenseTemplates: readonly TransactionTemplate[] = [
     creditAccount: 'Assets:Current:Wechat:Wallet',
   },
   {
+    name: '网购',
+    type: 'expense',
+    payee: '',
+    narration: '网购',
+    debitAccount: 'Expenses:Shopping:Online',
+    creditAccount: 'Assets:Current:Wechat:Wallet',
+  },
+  {
+    name: '游戏',
+    type: 'expense',
+    payee: '',
+    narration: '游戏充值',
+    debitAccount: 'Expenses:Entertainment:Games',
+    creditAccount: 'Assets:Current:Wechat:Wallet',
+  },
+  {
     name: '房租',
     type: 'expense',
     payee: '',
