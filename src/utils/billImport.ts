@@ -50,20 +50,36 @@ function mapExpenseAccount(category: string): string {
     '交通': 'Expenses:Transport',
     '交通出行': 'Expenses:Transport',
     '购物': 'Expenses:Shopping',
+    '网购': 'Expenses:Shopping',
     '服饰装扮': 'Expenses:Shopping:Clothing',
+    '服饰': 'Expenses:Shopping:Clothing',
+    '美容美发': 'Expenses:Shopping:Beauty',
+    '美容': 'Expenses:Shopping:Beauty',
     '日用百货': 'Expenses:Daily',
+    '日用品': 'Expenses:Daily',
     '生活服务': 'Expenses:Living',
+    '生活缴费': 'Expenses:Bills',
     '充值缴费': 'Expenses:Bills',
     '通讯': 'Expenses:Communication',
     '医疗健康': 'Expenses:Health:Medical',
+    '医疗': 'Expenses:Health:Medical',
     '文化休闲': 'Expenses:Entertainment',
+    '休闲娱乐': 'Expenses:Entertainment',
     '娱乐': 'Expenses:Entertainment',
     '教育': 'Expenses:Education',
     '住房': 'Expenses:Housing',
+    '房产': 'Expenses:Housing',
     '数码电器': 'Expenses:Shopping:Electronics',
+    '电子': 'Expenses:Shopping:Electronics',
     '转账': 'Expenses:Transfer',
     '红包': 'Expenses:RedPacket',
     '商业服务': 'Expenses:Business',
+    '酒店旅游': 'Expenses:Travel',
+    '旅游': 'Expenses:Travel',
+    '运动户外': 'Expenses:Sports',
+    '宠物': 'Expenses:Pet',
+    '公益': 'Expenses:Charity',
+    '其他': 'Expenses:Other',
   };
 
   for (const [key, account] of Object.entries(map)) {
@@ -80,6 +96,10 @@ function mapPaymentAccount(method: string): string {
   if (method.includes('工商') || method.includes('ICBC')) return 'Assets:Current:Bank:ICBC';
   if (method.includes('建设') || method.includes('CCB')) return 'Assets:Current:Bank:CCB';
   if (method.includes('农业') || method.includes('ABC')) return 'Assets:Current:Bank:ABC';
+  if (method.includes('中国银行') || method.includes('中行') || method.includes('BOC')) return 'Assets:Current:Bank:BOC';
+  if (method.includes('交通银行')) return 'Assets:Current:Bank:BCM';
+  if (method.includes('邮储') || method.includes('邮政')) return 'Assets:Current:Bank:PSBC';
+  if (method.includes('储蓄卡') || method.includes('借记卡')) return 'Assets:Current:Bank:Other';
   if (method.includes('花呗')) return 'Liabilities:Huabei';
   if (method.includes('信用卡')) return 'Liabilities:CreditCard';
   if (method.includes('白条')) return 'Liabilities:JDBaitiao';
@@ -128,6 +148,8 @@ function parseAlipayRows(headers: readonly string[], rows: readonly string[][]):
     const category = categoryCol >= 0 ? row[categoryCol]?.trim() ?? '' : '';
 
     if (amount <= 0) continue;
+    // Skip "不计收支" entries (transfers, refunds, etc.)
+    if (typeStr.includes('不计收支')) continue;
 
     const isIncome = typeStr.includes('收入') || typeStr.includes('入');
     const paymentAccount = mapPaymentAccount(method || '支付宝');
@@ -290,27 +312,42 @@ function readFileAsGBK(file: File): Promise<string> {
   });
 }
 
-// Parse CSV content, skipping leading comment lines
+// Known header keywords that identify the real data header row
+const HEADER_KEYWORDS = ['交易时间', '交易分类', '交易对方', '商品说明', '收/支', '金额', '支付方式', '交易状态', '交易类型', '当前状态'];
+
+// Parse CSV content, skipping leading comment/info lines
 function parseCSVContent(text: string): { headers: string[]; rows: string[][] } {
-  // Alipay/WeChat CSVs often have comment lines at the top
   const lines = text.split('\n');
-  let startIdx = 0;
-  for (let i = 0; i < Math.min(lines.length, 30); i++) {
+
+  // Find the header row: look for a line containing known header keywords
+  let headerIdx = -1;
+  for (let i = 0; i < Math.min(lines.length, 50); i++) {
     const line = lines[i]?.trim() ?? '';
-    // Skip empty lines and lines that look like headers/comments
-    if (line.startsWith('#') || line.startsWith('-') || line === '') {
-      startIdx = i + 1;
-      continue;
-    }
-    // If this line has enough commas, it might be the header
-    if (line.split(',').length >= 3) {
-      startIdx = i;
+    if (!line) continue;
+
+    // Check if this line contains multiple known header keywords
+    const matchCount = HEADER_KEYWORDS.filter((kw) => line.includes(kw)).length;
+    if (matchCount >= 3) {
+      headerIdx = i;
       break;
     }
-    startIdx = i + 1;
   }
 
-  const csvContent = lines.slice(startIdx).join('\n');
+  if (headerIdx < 0) {
+    // Fallback: find first line with 5+ comma-separated fields that doesn't start with - or #
+    for (let i = 0; i < Math.min(lines.length, 50); i++) {
+      const line = lines[i]?.trim() ?? '';
+      if (!line || line.startsWith('-') || line.startsWith('#')) continue;
+      if (line.split(',').length >= 5) {
+        headerIdx = i;
+        break;
+      }
+    }
+  }
+
+  if (headerIdx < 0) return { headers: [], rows: [] };
+
+  const csvContent = lines.slice(headerIdx).join('\n');
   const result = Papa.parse<string[]>(csvContent, {
     skipEmptyLines: true,
   });
@@ -319,7 +356,13 @@ function parseCSVContent(text: string): { headers: string[]; rows: string[][] } 
   if (data.length < 2) return { headers: [], rows: [] };
 
   const headers = data[0]?.map((h) => h.trim()) ?? [];
-  const rows = data.slice(1).filter((r) => r.some((cell) => cell.trim() !== ''));
+  // Filter out trailing summary rows (e.g., lines starting with dashes or empty data rows)
+  const rows = data.slice(1).filter((r) => {
+    if (!r.some((cell) => cell.trim() !== '')) return false;
+    const first = r[0]?.trim() ?? '';
+    if (first.startsWith('-') || first.startsWith('=')) return false;
+    return true;
+  });
 
   return { headers, rows };
 }
@@ -362,13 +405,19 @@ export async function importBillFile(file: File): Promise<Transaction[]> {
     headers = (jsonData[startIdx] ?? []).map((h) => (h ?? '').toString().trim());
     rows = jsonData.slice(startIdx + 1).map((r) => r.map((c) => (c ?? '').toString()));
   } else {
-    // Read CSV - try UTF-8 first, then GBK
-    let text = await readFileAsText(file);
-    // If we see garbled Chinese, try GBK
-    if (text.includes('ï¿½') || text.includes('é') || text.includes('å')) {
-      text = await readFileAsGBK(file);
-    }
-    const parsed = parseCSVContent(text);
+    // Try both GBK and UTF-8, pick the one that produces valid headers
+    const textGBK = await readFileAsGBK(file);
+    const textUTF8 = await readFileAsText(file);
+
+    // Try GBK first (Alipay/WeChat CSVs are typically GBK)
+    const parsedGBK = parseCSVContent(textGBK);
+    const parsedUTF8 = parseCSVContent(textUTF8);
+
+    // Pick the encoding that finds more header keywords
+    const gbkScore = HEADER_KEYWORDS.filter((kw) => parsedGBK.headers.join(',').includes(kw)).length;
+    const utf8Score = HEADER_KEYWORDS.filter((kw) => parsedUTF8.headers.join(',').includes(kw)).length;
+
+    const parsed = gbkScore >= utf8Score ? parsedGBK : parsedUTF8;
     headers = parsed.headers;
     rows = parsed.rows;
   }
