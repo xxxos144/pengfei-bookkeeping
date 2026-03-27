@@ -84,6 +84,23 @@
   cursor: not-allowed;
 }
 
+.btn-bill {
+  background: linear-gradient(135deg, #3b82f6, #8b5cf6);
+  color: #fff;
+  font-size: 15px;
+  padding: 14px;
+}
+
+.btn-bill:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.data-highlight {
+  border: 2px solid #3b82f6;
+  background: #eff6ff;
+}
+
 .data-danger {
   border: 1px solid #fecaca;
 }

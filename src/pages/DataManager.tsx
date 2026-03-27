@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Transaction } from '../types';
-import { clearAllTransactions } from '../utils/db';
+import { clearAllTransactions, importTransactions } from '../utils/db';
+import { pickBillFiles, importBillFile } from '../utils/billImport';
 import { toastConfirm, toast } from '../utils/toast';
 import './DataManager.css';
 
@@ -13,6 +14,7 @@ interface Props {
 
 export default function DataManager({ transactions, onImport, onExport, onRefresh }: Props) {
   const [clearing, setClearing] = useState(false);
+  const [importing, setImporting] = useState(false);
 
   const handleClear = async () => {
     const confirmed = await toastConfirm('确定清空所有交易数据吗？此操作不可撤销！');
@@ -28,6 +30,33 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
     }
   };
 
+  const handleBillImport = async () => {
+    const files = await pickBillFiles();
+    if (files.length === 0) return;
+
+    setImporting(true);
+    try {
+      let total = 0;
+      for (const file of files) {
+        const txs = await importBillFile(file);
+        if (txs.length > 0) {
+          await importTransactions(txs);
+          total += txs.length;
+        }
+      }
+      if (total > 0) {
+        await onRefresh();
+        toast(`成功导入 ${total} 笔账单交易`, 'success');
+      } else {
+        toast('未能识别账单内容，请检查文件格式', 'error');
+      }
+    } catch {
+      toast('导入失败，请检查文件', 'error');
+    } finally {
+      setImporting(false);
+    }
+  };
+
   return (
     <div className="data-manager">
       <h2 className="page-title">数据管理</h2>
@@ -39,9 +68,21 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
         </div>
       </div>
 
+      <div className="data-section data-highlight">
+        <h3>导入支付宝 / 微信账单</h3>
+        <p>支持 CSV 和 XLSX 格式，自动识别支付宝、微信账单</p>
+        <button
+          className="data-btn btn-bill"
+          onClick={handleBillImport}
+          disabled={importing}
+        >
+          {importing ? '导入中...' : '选择账单文件 (CSV/XLSX)'}
+        </button>
+      </div>
+
       <div className="data-section">
-        <h3>导入数据</h3>
-        <p>从 .bean 文件导入 Beancount 交易记录</p>
+        <h3>导入 Beancount 数据</h3>
+        <p>从 .bean 文件导入交易记录</p>
         <button className="data-btn btn-import" onClick={onImport}>
           导入 .bean 文件
         </button>
@@ -49,7 +90,7 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
 
       <div className="data-section">
         <h3>导出数据</h3>
-        <p>将所有交易导出为 Beancount .bean 格式文件</p>
+        <p>将所有交易导出为 .bean 格式</p>
         <button className="data-btn btn-export" onClick={onExport}>
           导出 .bean 文件
         </button>
@@ -68,13 +109,12 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
       </div>
 
       <div className="data-section data-info">
-        <h3>使用说明</h3>
+        <h3>账单获取方式</h3>
         <ul>
-          <li>所有数据保存在浏览器本地存储中</li>
-          <li>支持导入 Beancount (.bean) 格式文件</li>
-          <li>导出的文件可用 Fava 或文本编辑器打开</li>
-          <li>建议定期导出备份，防止数据丢失</li>
-          <li>更换浏览器或清除浏览器数据会丢失记录</li>
+          <li><strong>支付宝</strong>：我的 → 账单 → 右上角 ... → 账单下载 → 邮箱收取</li>
+          <li><strong>微信</strong>：我 → 服务 → 钱包 → 账单 → 常见问题 → 下载账单</li>
+          <li>下载的 ZIP 解压后得到 CSV 文件，直接导入即可</li>
+          <li>也支持 XLSX 格式的账单文件</li>
         </ul>
       </div>
     </div>
