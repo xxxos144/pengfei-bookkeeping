@@ -1,0 +1,150 @@
+.balance-editor {
+  max-width: 700px;
+  margin: 0 auto;
+}
+
+.page-desc {
+  color: #9ca3af;
+  font-size: 13px;
+  margin-bottom: 20px;
+}
+
+.assert-date-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 20px;
+  background: #fff;
+  padding: 14px 18px;
+  border-radius: 10px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+}
+
+.assert-date-row label {
+  font-size: 14px;
+  font-weight: 600;
+  color: #4b5563;
+  white-space: nowrap;
+}
+
+.assert-date-row input {
+  padding: 8px 12px;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  font-size: 14px;
+}
+
+.assert-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.assert-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 4px solid #3b82f6;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  gap: 12px;
+}
+
+.assert-row.liability {
+  border-left-color: #f59e0b;
+}
+
+.assert-account {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.assert-account input {
+  border: none;
+  background: transparent;
+  font-size: 14px;
+  font-family: 'SF Mono', 'Consolas', monospace;
+  color: #374151;
+  width: 100%;
+  outline: none;
+}
+
+.assert-comment {
+  font-size: 11px;
+  color: #9ca3af;
+}
+
+.assert-amount {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.liability-sign {
+  color: #f59e0b;
+  font-weight: 700;
+  font-size: 16px;
+}
+
+.assert-amount input {
+  width: 120px;
+  text-align: right;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
+}
+
+.assert-currency {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.assert-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: flex-end;
+}
+
+.btn-add {
+  padding: 10px 20px;
+  background: #f9fafb;
+  border: 1px dashed #d1d5db;
+  border-radius: 8px;
+  cursor: pointer;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.btn-add:hover {
+  background: #f3f4f6;
+}
+
+.btn-save {
+  padding: 10px 24px;
+  background: #3b82f6;
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.btn-save:hover {
+  background: #2563eb;
+}
+
+.loading {
+  text-align: center;
+  color: #9ca3af;
+  padding: 40px;
+}

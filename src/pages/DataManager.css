@@ -1,0 +1,101 @@
+.data-manager {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.data-stats {
+  display: flex;
+  gap: 12px;
+}
+
+.stat-card {
+  flex: 1;
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  text-align: center;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.stat-number {
+  display: block;
+  font-size: 32px;
+  font-weight: 800;
+  color: #3b82f6;
+  font-variant-numeric: tabular-nums;
+}
+
+.stat-label {
+  font-size: 13px;
+  color: #9ca3af;
+}
+
+.data-section {
+  background: #fff;
+  border-radius: 12px;
+  padding: 18px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+}
+
+.data-section h3 {
+  font-size: 15px;
+  font-weight: 700;
+  color: #1f2937;
+  margin-bottom: 4px;
+}
+
+.data-section p {
+  font-size: 13px;
+  color: #9ca3af;
+  margin-bottom: 12px;
+}
+
+.data-btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 10px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+
+.data-btn:active { opacity: 0.8; }
+
+.btn-import {
+  background: #dbeafe;
+  color: #2563eb;
+}
+
+.btn-export {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.btn-danger {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.data-danger {
+  border: 1px solid #fecaca;
+}
+
+.data-info {
+  background: #f9fafb;
+  border: 1px dashed #e5e7eb;
+}
+
+.data-info ul {
+  padding-left: 18px;
+  font-size: 13px;
+  color: #6b7280;
+  line-height: 1.8;
+}

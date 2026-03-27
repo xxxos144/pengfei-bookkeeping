@@ -1,0 +1,104 @@
+.investments {
+  max-width: 600px;
+  margin: 0 auto;
+}
+
+.invest-form {
+  background: #fff;
+  border-radius: 12px;
+  padding: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  margin-bottom: 20px;
+}
+
+.invest-templates {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.invest-tpl-btn {
+  padding: 6px 14px;
+  border: 1px solid #e5e7eb;
+  border-radius: 20px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 13px;
+  color: #4b5563;
+  transition: all 0.2s;
+}
+
+.invest-tpl-btn.active {
+  border-color: #22c55e;
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.invest-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.invest-year-nav {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.invest-year-nav button {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 8px;
+  padding: 6px 14px;
+  cursor: pointer;
+}
+
+.invest-year-nav span {
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.invest-records {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.invest-card {
+  background: #fff;
+  padding: 12px 16px;
+  border-radius: 10px;
+  border-left: 4px solid #22c55e;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.invest-card-header {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.invest-date {
+  font-size: 12px;
+  color: #9ca3af;
+}
+
+.invest-label {
+  font-size: 14px;
+  color: #374151;
+  font-weight: 500;
+}
+
+.invest-card-amount {
+  font-size: 16px;
+  font-weight: 700;
+  color: #22c55e;
+  font-variant-numeric: tabular-nums;
+}

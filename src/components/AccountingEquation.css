@@ -1,0 +1,58 @@
+.equation-bar {
+  background: #fff;
+  border-radius: 12px;
+  padding: 16px 24px;
+  margin-bottom: 20px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+}
+
+.equation {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.eq-item {
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.eq-item strong {
+  margin-left: 6px;
+  font-size: 15px;
+}
+
+.eq-assets {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.eq-expenses {
+  background: #fee2e2;
+  color: #dc2626;
+}
+
+.eq-liabilities {
+  background: #fef3c7;
+  color: #d97706;
+}
+
+.eq-equity {
+  background: #e0e7ff;
+  color: #4338ca;
+}
+
+.eq-income {
+  background: #dcfce7;
+  color: #16a34a;
+}
+
+.eq-op {
+  font-size: 18px;
+  font-weight: 600;
+  color: #9ca3af;
+}

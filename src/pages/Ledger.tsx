@@ -1,0 +1,132 @@
+import { useState, useMemo } from 'react';
+import type { Transaction } from '../types';
+import {
+  getTransactionType,
+  getTransactionColor,
+  filterByMonth,
+} from '../utils/beancount';
+import { toastConfirm } from '../utils/toast';
+import './Ledger.css';
+
+interface Props {
+  readonly transactions: readonly Transaction[];
+  readonly onDelete: (id: string) => Promise<void>;
+}
+
+const typeLabelsMap: Record<string, string> = {
+  expense: '支出',
+  income: '收入',
+  transfer: '转账',
+  repayment: '还款',
+};
+
+export default function Ledger({ transactions, onDelete }: Props) {
+  const now = new Date();
+  const [year, setYear] = useState(now.getFullYear());
+  const [month, setMonth] = useState(now.getMonth() + 1);
+
+  const filtered = useMemo(
+    () => filterByMonth(transactions, year, month),
+    [transactions, year, month]
+  );
+
+  const monthTotal = useMemo(() => {
+    let income = 0;
+    let expense = 0;
+    for (const tx of filtered) {
+      const type = getTransactionType(tx);
+      if (type === 'expense') {
+        for (const p of tx.postings) {
+          if (p.account.startsWith('Expenses:')) expense += p.amount;
+        }
+      } else if (type === 'income') {
+        for (const p of tx.postings) {
+          if (p.account.startsWith('Income:')) income += Math.abs(p.amount);
+        }
+      }
+    }
+    return { income, expense };
+  }, [filtered]);
+
+  const prevMonth = () => {
+    if (month === 1) { setYear(year - 1); setMonth(12); }
+    else setMonth(month - 1);
+  };
+
+  const nextMonth = () => {
+    if (month === 12) { setYear(year + 1); setMonth(1); }
+    else setMonth(month + 1);
+  };
+
+  const handleDelete = async (tx: Transaction) => {
+    const confirmed = await toastConfirm(`确定删除「${tx.narration}」吗？`);
+    if (!confirmed) return;
+    await onDelete(tx.id);
+  };
+
+  return (
+    <div className="ledger">
+      <div className="ledger-nav">
+        <button className="nav-btn" onClick={prevMonth}>◀</button>
+        <span className="nav-title">{year}年{month}月</span>
+        <button className="nav-btn" onClick={nextMonth}>▶</button>
+      </div>
+
+      <div className="month-summary">
+        <div className="summary-item summary-income">
+          收入<strong>¥{monthTotal.income.toFixed(2)}</strong>
+        </div>
+        <div className="summary-item summary-expense">
+          支出<strong>¥{monthTotal.expense.toFixed(2)}</strong>
+        </div>
+        <div className="summary-item summary-balance">
+          结余<strong>¥{(monthTotal.income - monthTotal.expense).toFixed(2)}</strong>
+        </div>
+      </div>
+
+      <div className="tx-list">
+        {filtered.length === 0 && (
+          <div className="tx-empty">本月暂无交易记录</div>
+        )}
+        {[...filtered].reverse().map((tx) => {
+          const type = getTransactionType(tx);
+          const colorClass = getTransactionColor(type);
+          const mainAmount = tx.postings[0]?.amount ?? 0;
+
+          return (
+            <div key={tx.id} className={`tx-card ${colorClass}`}>
+              <div className="tx-header">
+                <span className="tx-date">{tx.date}</span>
+                <span className="tx-type-badge">{typeLabelsMap[type]}</span>
+              </div>
+              <div className="tx-body">
+                <div className="tx-info">
+                  {tx.payee && <span className="tx-payee">{tx.payee}</span>}
+                  <span className="tx-narration">{tx.narration}</span>
+                </div>
+                <span className="tx-amount">
+                  {mainAmount >= 0 ? '+' : ''}{mainAmount.toFixed(2)}
+                </span>
+              </div>
+              <div className="tx-footer">
+                <div className="tx-accounts">
+                  {tx.postings.map((p, i) => (
+                    <span key={i} className="tx-account">
+                      {p.account.split(':').slice(-1)[0]}
+                    </span>
+                  ))}
+                </div>
+                <button
+                  className="tx-delete"
+                  onClick={() => handleDelete(tx)}
+                >
+                  删除
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
