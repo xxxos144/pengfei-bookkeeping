@@ -104,17 +104,23 @@ export default function DataManager({ transactions, onImport, onExport, onRefres
 
     setImporting(true);
     try {
-      let total = 0;
+      let totalParsed = 0;
+      let totalImported = 0;
       for (const file of files) {
         const txs = await importBillFile(file);
         if (txs.length > 0) {
-          await importTransactions(txs);
-          total += txs.length;
+          const imported = await importTransactions(txs);
+          totalParsed += txs.length;
+          totalImported += imported;
         }
       }
-      if (total > 0) {
+      if (totalParsed > 0) {
         await onRefresh();
-        toast(`成功导入 ${total} 笔账单交易`, 'success');
+        const skipped = totalParsed - totalImported;
+        const msg = skipped > 0
+          ? `导入 ${totalImported} 笔，跳过 ${skipped} 笔重复交易`
+          : `成功导入 ${totalImported} 笔账单交易`;
+        toast(msg, 'success');
       } else {
         toast('未能识别账单内容，请检查文件格式', 'error');
       }

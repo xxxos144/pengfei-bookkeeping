@@ -50,13 +50,36 @@ export async function deleteTransaction(id: string): Promise<void> {
   await db.delete(STORES.transactions, id);
 }
 
-export async function importTransactions(txs: readonly Transaction[]): Promise<void> {
+/**
+ * Import transactions with automatic dedup.
+ * Skips any new transaction whose date + absolute amount already exists
+ * in the database (handles cross-source duplicates like Alipay CSV + bank PDF).
+ * Returns the number of actually imported (non-duplicate) transactions.
+ */
+export async function importTransactions(txs: readonly Transaction[]): Promise<number> {
   const db = await getDB();
+
+  // Build a set of existing date+amount keys for fast lookup
+  const existing = await db.getAll(STORES.transactions);
+  const existingKeys = new Set<string>();
+  for (const t of existing) {
+    const amt = Math.abs(t.postings[0]?.amount ?? 0).toFixed(2);
+    existingKeys.add(`${t.date}|${amt}`);
+  }
+
   const tx = db.transaction(STORES.transactions, 'readwrite');
+  let imported = 0;
   for (const t of txs) {
+    const amt = Math.abs(t.postings[0]?.amount ?? 0).toFixed(2);
+    const key = `${t.date}|${amt}`;
+    if (existingKeys.has(key)) continue; // skip duplicate
+
     await tx.store.put(t);
+    existingKeys.add(key); // also dedup within the batch itself
+    imported++;
   }
   await tx.done;
+  return imported;
 }
 
 export async function updateTransaction(tx: Transaction): Promise<void> {

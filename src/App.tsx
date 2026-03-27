@@ -65,9 +65,13 @@ export default function App() {
     try {
       const txs = await importFromBean();
       if (txs.length === 0) return;
-      await importTransactions(txs);
+      const imported = await importTransactions(txs);
       await loadData();
-      toast(`成功导入 ${txs.length} 笔交易`, 'success');
+      const skipped = txs.length - imported;
+      const msg = skipped > 0
+        ? `导入 ${imported} 笔，跳过 ${skipped} 笔重复交易`
+        : `成功导入 ${imported} 笔交易`;
+      toast(msg, 'success');
     } catch {
       toast('导入失败', 'error');
     }
